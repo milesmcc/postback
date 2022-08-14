@@ -1,12 +1,10 @@
-FROM python:3.10
+FROM alpine:3.16
 
 RUN mkdir /app
 
-RUN apt-get update && apt-get install -y \
-  zstd \
-  age \
-  postgresql-client \
-  && rm -rf /var/lib/apt/lists/*
+RUN apk update
+RUN apk add postgresql14-client zstd age python3-dev py3-pip gcc libc-dev libffi-dev
+RUN rm -rf /var/cache/apk/*
 
 COPY pyproject.toml /app
 
@@ -14,9 +12,9 @@ WORKDIR /app
 
 ENV PYTHONPATH=${PYTHONPATH}:${PWD} 
 
-RUN pip3 install poetry
-RUN poetry config virtualenvs.create false
-RUN poetry install --no-dev
+RUN pip3 install poetry --user
+RUN python3 -m poetry config virtualenvs.create false
+RUN python3 -m poetry install
 
 COPY /src /app
 

@@ -89,7 +89,7 @@ def upload_to_s3(
     logger.info(f"Uploading backup to S3: {object_name}")
 
     # Upload the file
-    subprocess.run(["python3", "-m", "awscli", "s3", "cp", file_name, f"s3://{bucket}/{object_name}", "--metadata", f"database={database_name},sha256={checksum}"], capture_output=True)
+    subprocess.run(["python3", "-m", "awscli", "s3", "cp", file_name, f"s3://{bucket}/{object_name}", "--metadata", f"database={database_name},sha256={checksum}"], capture_output=True).check_returncode()
 
 
 def backup_database(database: str) -> bool:

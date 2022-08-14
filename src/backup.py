@@ -1,30 +1,19 @@
 import base64
-from datetime import datetime
+from datetime import date, datetime
 import itertools
 from pathlib import Path
 import subprocess
 import os
+from time import sleep, time
 import psycopg
-from typing import Iterable, Optional, Tuple
-from botocore.exceptions import ClientError
+from typing import Iterable, Optional
+from croniter import croniter
+import traceback
 import tempfile
 from loguru import logger
 import boto3
 
 # Note: We use tempfile.mktemp(). Yeah. It has to be this way, since we're intentionally passing the paths to subprocesses.
-
-_minisign_key_location = None
-
-
-def get_minisign_key():
-    global _minisign_key_location
-
-    if _minisign_key_location is None:
-        _minisign_key_location = tempfile.mktemp()
-        with open(_minisign_key_location, "w") as outfile:
-            outfile.write(os.getenv("MINISIGN_PRIVATE_KEY"))
-
-    return _minisign_key_location
 
 
 def get_connection_string(database: Optional[str] = None) -> str:
@@ -127,6 +116,8 @@ def upload_to_s3(
 def backup_database(database: str) -> bool:
     """Compresses, encrypts, and hashes the database dump at the given path."""
 
+    logger.info(f"Backing up {database}...")
+
     # Step 0: export
     dump_path = export_database(database)
 
@@ -144,6 +135,27 @@ def backup_database(database: str) -> bool:
     # Step 4: upload to S3
     upload_to_s3(encrypted_output_path, database, datetime.now(), checksum)
 
+def backup_databases():
+    logger.info("Backing up databases...")
+
+    for database in list_databases():
+        backup_database(database)
+
+def run_schedule():
+    logger.info("Running crontab schedule...")
+    while True:
+        try:
+            next_runtime = croniter(os.getenv("CRON_SCHEDULE", "0 * * * *"), datetime.now()).get_next(datetime)
+            
+            while datetime.now() < next_runtime:
+                seconds = (next_runtime - datetime.now()).total_seconds()
+                logger.info(f"Next run in {seconds} seconds. Sleeping...")
+                sleep(seconds)
+            
+            backup_databases()
+        except Exception as e:
+            logger.error(f"Encountered an error while backing up the databases: {e}")
+            traceback.print_exc()
 
 if __name__ == "__main__":
-    print(backup_database("platform_dev"))
+    print(backup_databases)

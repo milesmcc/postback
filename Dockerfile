@@ -1,9 +1,10 @@
-FROM alpine:3.16
+FROM ubuntu:jammy
 
 RUN mkdir /app
 
-RUN apk update
-RUN apk add postgresql14-client zstd age python3-dev py3-pip gcc libc-dev libffi-dev
+RUN apt clean
+RUN apt update
+RUN apt install -y postgresql-client-14 zstd age python3-dev python3-pip gcc libc-dev libffi-dev
 RUN rm -rf /var/cache/apk/*
 
 COPY pyproject.toml /app

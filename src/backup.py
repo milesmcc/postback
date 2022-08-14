@@ -11,7 +11,6 @@ from croniter import croniter
 import traceback
 import tempfile
 from loguru import logger
-import boto3
 
 # Note: We use tempfile.mktemp(). Yeah. It has to be this way, since we're intentionally passing the paths to subprocesses.
 
@@ -90,27 +89,7 @@ def upload_to_s3(
     logger.info(f"Uploading backup to S3: {object_name}")
 
     # Upload the file
-    s3_client = boto3.client("s3")
-    s3_client.upload_file(
-        file_name,
-        bucket,
-        object_name,
-        ExtraArgs={
-            "Metadata": {"database": database_name},
-            "ChecksumAlgorithm": "SHA256",
-        },
-    )
-
-    # Verify file integrity
-    head = s3_client.head_object(Bucket=bucket, Key=object_name, ChecksumMode="ENABLED")
-    amz_checksum = base64.decodebytes(
-        head["ResponseMetadata"]["HTTPHeaders"]["x-amz-checksum-sha256"].encode()
-    ).hex()  # Amazon base64 encodes the data
-    if amz_checksum != checksum:
-        logger.error(f"Checksum did not match for {database_name} backup!")
-        raise ValueError("Upload checksum did not match!")
-    else:
-        logger.info(f"Checksum matched for {database_name} backup!")
+    subprocess.run(["python3", "-m", "awscli", "s3", "cp", file_name, f"s3://{bucket}/{object_name}", "--metadata", f"database={database_name},sha256={checksum}"], capture_output=True)
 
 
 def backup_database(database: str) -> bool:

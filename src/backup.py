@@ -135,6 +135,9 @@ def backup_database(database: str) -> bool:
     # Step 4: upload to S3
     upload_to_s3(encrypted_output_path, database, datetime.now(), checksum)
 
+    # Step 5: cleanup
+    os.remove(encrypted_output_path)
+
 def backup_databases():
     logger.info("Backing up databases...")
 

@@ -9,6 +9,7 @@ import psycopg
 from typing import Iterable, Optional
 from croniter import croniter
 import traceback
+import requests
 import tempfile
 from loguru import logger
 
@@ -89,7 +90,20 @@ def upload_to_s3(
     logger.info(f"Uploading backup to S3: {object_name}")
 
     # Upload the file
-    subprocess.run(["python3", "-m", "awscli", "s3", "cp", file_name, f"s3://{bucket}/{object_name}", "--metadata", f"database={database_name},sha256={checksum}"], capture_output=True).check_returncode()
+    subprocess.run(
+        [
+            "python3",
+            "-m",
+            "awscli",
+            "s3",
+            "cp",
+            file_name,
+            f"s3://{bucket}/{object_name}",
+            "--metadata",
+            f"database={database_name},sha256={checksum}",
+        ],
+        capture_output=True,
+    ).check_returncode()
 
 
 def backup_database(database: str) -> bool:
@@ -117,27 +131,38 @@ def backup_database(database: str) -> bool:
     # Step 5: cleanup
     os.remove(encrypted_output_path)
 
+
 def backup_databases():
     logger.info("Backing up databases...")
 
     for database in list_databases():
         backup_database(database)
 
+    logger.info("Done backing up databases.")
+
+    if os.getenv("HEALTHCHECK_ENDPOINT"):
+        logger.info("Pinging healthcheck endpoint...")
+        requests.post(os.getenv("HEALTHCHECK_ENDPOINT"))
+
+
 def run_schedule():
     logger.info("Running crontab schedule...")
     while True:
         try:
-            next_runtime = croniter(os.getenv("CRON_SCHEDULE", "0 * * * *"), datetime.now()).get_next(datetime)
-            
+            next_runtime = croniter(
+                os.getenv("CRON_SCHEDULE", "0 * * * *"), datetime.now()
+            ).get_next(datetime)
+
             while datetime.now() < next_runtime:
                 seconds = (next_runtime - datetime.now()).total_seconds()
                 logger.info(f"Next run in {seconds} seconds. Sleeping...")
                 sleep(seconds)
-            
+
             backup_databases()
         except Exception as e:
             logger.error(f"Encountered an error while backing up the databases: {e}")
             traceback.print_exc()
+
 
 if __name__ == "__main__":
     print(backup_databases)

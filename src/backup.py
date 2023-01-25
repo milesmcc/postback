@@ -147,6 +147,9 @@ def backup_databases():
 
 def run_schedule():
     logger.info("Running crontab schedule...")
+    if os.getenv("HEALTHCHECK_ENDPOINT"):
+        logger.info("Note: healthcheck endpoint will be pinged at the end of each run.")
+
     while True:
         try:
             next_runtime = croniter(

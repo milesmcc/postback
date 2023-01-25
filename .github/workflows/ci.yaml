@@ -40,8 +40,8 @@ jobs:
             milesmcc/postback
             ghcr.io/${{ github.repository }}
           tags: |
-            milesmcc/postback:${{ steps.get-latest-tag.outputs.tag }}
-            milesmcc/postback:latest
+            ${{ steps.get-latest-tag.outputs.tag }}
+            latest
       - name: Build and push
         id: docker_build
         uses: docker/build-push-action@v2
